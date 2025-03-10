@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>3D Planet Portfolio</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    #info {
+      position: absolute; top: 20px; left: 20px; color: white;
+      font-family: Arial, sans-serif;
+      text-shadow: 1px 1px 2px black;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">Click on a planet to visit my projects!</div>
+
+  <script type="module">
+    import * as THREE from 'https://esm.sh/three';
+    import { OrbitControls } from 'https://esm.sh/three/examples/jsm/controls/OrbitControls.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 5, 20);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    // Starry Background
+    const starGeometry = new THREE.BufferGeometry();
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.02 });
+    const stars = [];
+    for (let i = 0; i < 2000; i++) {
+      stars.push(
+        THREE.MathUtils.randFloatSpread(200),
+        THREE.MathUtils.randFloatSpread(200),
+        THREE.MathUtils.randFloatSpread(200)
+      );
+    }
+    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(stars, 3));
+    const starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    const sunLight = new THREE.PointLight(0xffffff, 1.5);
+    sunLight.position.set(10, 10, 10);
+    scene.add(sunLight);
+
+    // Earth
+    const earthGeometry = new THREE.SphereGeometry(3, 64, 64);
+    const earthMaterial = new THREE.MeshPhongMaterial({
+      map: new THREE.TextureLoader().load('./earth_atmos_2048.jpg'),
+      bumpScale: 0.05
+    });
+    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+    scene.add(earth);
+
+    // Planets (projects)
+    const planets = [];
+    const planetData = [
+      { distance: 5, size: 0.5, speed: 0.01, texture: './earth_clouds_1024.png', link: 'https://project1.com' },
+      { distance: 6.5, size: 0.4, speed: 0.008, texture: './Texturelabs_Sky_167L.jpg', link: 'https://project2.com' },
+      { distance: 8, size: 0.6, speed: 0.006, texture: './Texturelabs_Metal_178L.jpg', link: 'https://project3.com' },
+      { distance: 9.5, size: 0.45, speed: 0.005, texture: './Texturelabs_Glass_144L.jpg', link: 'https://project4.com' },
+      { distance: 11, size: 0.55, speed: 0.004, texture: './pexels-philkallahar-983200.jpg', link: 'https://project5.com' }
+    ];
+
+    planetData.forEach((proj) => {
+      const planetGeo = new THREE.SphereGeometry(proj.size, 32, 32);
+      const planetMat = new THREE.MeshPhongMaterial({ 
+        map: new THREE.TextureLoader().load(proj.texture), 
+        emissive: 0x222222 
+      });
+      const planet = new THREE.Mesh(planetGeo, planetMat);
+      const pivot = new THREE.Object3D();
+      pivot.rotation.y = Math.random() * Math.PI * 2;
+      planet.position.set(proj.distance, 0, 0);
+      pivot.add(planet);
+      planet.userData = { speed: proj.speed, link: proj.link };
+      scene.add(pivot);
+      planets.push(pivot);
+    });
+
+    // Shooting Star
+    const shootingStars = [];
+    function createShootingStar() {
+      const starGeo = new THREE.SphereGeometry(0.05, 8, 8);
+      const starMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const star = new THREE.Mesh(starGeo, starMat);
+      star.position.set(
+        THREE.MathUtils.randFloatSpread(50),
+        THREE.MathUtils.randFloat(5, 20),
+        THREE.MathUtils.randFloatSpread(50)
+      );
+      star.userData.velocity = new THREE.Vector3(-0.1, -0.1, 0);
+      scene.add(star);
+      shootingStars.push(star);
+
+      setTimeout(() => scene.remove(star), 3000);
+    }
+
+    setInterval(createShootingStar, 5000);
+
+    // Click event
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    window.addEventListener('click', event => {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(planets.map(p => p.children[0]));
+      if (intersects.length) window.open(intersects[0].object.userData.link, '_blank');
+    });
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // Resize
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+
+    // Animate
+    function animate() {
+      requestAnimationFrame(animate);
+      earth.rotation.y += 0.001;
+      planets.forEach(pivot => pivot.rotation.y += pivot.children[0].userData.speed);
+      shootingStars.forEach(star => star.position.add(star.userData.velocity));
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
